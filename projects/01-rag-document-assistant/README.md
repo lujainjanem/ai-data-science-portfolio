@@ -29,14 +29,19 @@ The results below are on the included sample corpus: a 7-document, ~2,800-word M
 | BM25 | 0.83 | 0.90 | 0.93 | 0.87 |
 | Dense (LSA) | 0.87 | 0.93 | 0.93 | 0.90 |
 | Hybrid (BM25 + LSA, RRF) | 0.83 | 0.93 | 0.93 | 0.88 |
-| Dense (MiniLM) | _run `python evaluate.py`_ | | | |
-| Hybrid (BM25 + MiniLM) | _run `python evaluate.py`_ | | | |
+| Dense (MiniLM) | 0.73 | **1.00** | **1.00** | 0.87 |
+| **Hybrid (BM25 + MiniLM, RRF)** | **0.87** | **1.00** | **1.00** | **0.92** |
 
-**Error analysis.** Every retriever misses the same two questions, and both are paraphrases with almost no word overlap with the source text:
-- *q04*: "What happens to the two error components when a model gets more complex?" The source says "lowers bias but raises variance".
-- *q27*: "Do I need to standardize inputs before training a decision tree?" The source says "Tree-based models … do not need scaling".
+**Findings**
+- **Hybrid with MiniLM is the best configuration** (the default in the app and CLI). It finds a relevant chunk in the top 3 for every question, and ranks it first 87% of the time.
+- **Neural embeddings fix BM25's misses.** BM25 and LSA both miss the same two paraphrased questions, where the question and the source share almost no words:
+  - *q04*: "What happens to the two error components when a model gets more complex?" The source says "lowers bias but raises variance".
+  - *q27*: "Do I need to standardize inputs before training a decision tree?" The source says "Tree-based models … do not need scaling".
 
-This is exactly the gap neural embeddings are meant to close. The MiniLM rows are the next experiment to run.
+  MiniLM retrieves both.
+- **But MiniLM alone is worse at ranking the best chunk first** (hit@1 0.73 vs 0.83 for BM25). It finds the right topic but is less precise about exact terms. Fusing the two with RRF keeps MiniLM's recall and BM25's precision, giving the best hit@1 and MRR of any setup.
+
+_Caveat: 30 answerable questions over a small corpus. One question moves hit@k by 0.03, so small differences aren't significant. A larger corpus and question set is the main next step._
 
 **End-to-end answer quality.** `python evaluate.py --generation` generates an answer for every question and has Claude grade each one, using structured outputs, on:
 - **faithfulness**: whether every claim is supported by the retrieved context
@@ -97,7 +102,8 @@ tests/            # unit tests (offline)
 
 ## Next steps
 
-- [ ] Run the MiniLM rows and a chunk-size sweep (75 / 150 / 300 words)
+- [x] Compare BM25, LSA and MiniLM embeddings, alone and fused
+- [ ] Chunk-size sweep (75 / 150 / 300 words)
 - [ ] Add a cross-encoder re-ranker and measure the change in hit@1
 - [ ] Try a larger real corpus (e.g., a university handbook or a set of papers) with 100+ questions
 - [ ] Add PDF ingestion
