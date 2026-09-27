@@ -1,0 +1,3 @@
+data/human/*.csv
+data/cache/
+models/*.joblib
